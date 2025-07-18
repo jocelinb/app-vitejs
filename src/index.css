@@ -2,16 +2,12 @@
 @import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 @import 'mapbox-gl/dist/mapbox-gl.css';
 
-html,
-body,
-#root {
-  height: 100%;
-  width: 100%;
-  font-family: 'Inter', sans-serif;
-  background-color: #f9fafb;
-  /* si tu veux garder la possibilité de scroller les suggestions Geocoder, 
-     retire ou commente overflow: hidden */
-  overflow: hidden;
+#panieco-container .mapboxgl-map {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
 }
 
 /* 4. Styles du Geocoder (inchangés) */
@@ -100,4 +96,30 @@ body,
   right:    0px       !important;
   bottom:   0px       !important;
   left:     0px       !important;
+}
+
+/* ========== OVERRIDES POUR LES BOUTONS DU WIDGET ========== */
+
+/* Boutons “primaires” (Rejoindre, Payer…) */
+#panieco-container button.btn-primary {
+  background-color: #2563EB;
+  color:            #FFFFFF;
+}
+#panieco-container button.btn-primary:hover {
+  background-color: #1D4ED8;
+}
+
+/* Liens/textes d’action (Me retirer…) */
+#panieco-container button.btn-text {
+  background:       none;
+  color:            #DC2626;    /* rouge-600 */
+  padding:          0;
+  border:           none;
+  text-decoration:  underline;
+}
+
+/* Focus ring */
+#panieco-container button:focus {
+  outline: none      !important;
+  box-shadow: 0 0 0 2px rgba(147,197,253,0.5) !important; /* ring-2 ring-blue-300 */
 }

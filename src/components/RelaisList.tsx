@@ -1,12 +1,13 @@
+import { Relay } from '@/types'
 import RelaisDetails from './RelaisDetails'
 import RelaisListView from './RelaisListView'
 
 interface Props {
-  data: any[]
+  data: Relay[]
   viewMode: 'list'|'details'
-  selectedRelais: any
+  selectedRelais: Relay | null
   setViewMode(mode: 'list'|'details'): void
-  setSelectedRelais(rel: any): void
+  setSelectedRelais(rel: Relay | null): void
 }
 
 export default function RelaisList({

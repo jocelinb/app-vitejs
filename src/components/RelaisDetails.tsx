@@ -1,10 +1,11 @@
-import { useState } from 'react'
-import ArrowLeft from '../icons/ArrowLeft'
-import ChevronDown from '../icons/ChevronDown'
-import Clock from '../icons/Clock'
-import MarkerIcon from '../icons/MarkerIcon'
-import QuitIcon from '../icons/QuitIcon'
-import ShoppingCart from '../icons/ShoppingCart'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import axios from 'axios'
+import ArrowLeft from '@/icons/ArrowLeft'
+import ChevronDown from '@/icons/ChevronDown'
+import Clock from '@/icons/Clock'
+import MarkerIcon from '@/icons/MarkerIcon'
+import QuitIcon from '@/icons/QuitIcon'
+import ShoppingCart from '@/icons/ShoppingCart'
 import {
   days,
   hasAfternoonHours,
@@ -12,41 +13,110 @@ import {
   formatMorningHoursForDisplay,
   groupHoursByDay,
   dayOfWeekToFrench
-} from '../utils/timeHelpers'
+} from '@/utils/timeHelpers'
+import { useWidgetContext } from '@/context/WidgetContext'
+import PaniecoDetails from './PaniecoDetails'
+import clsx from 'clsx';
+import { getStatusConfig } from '@/utils/statusHelper';
+import { Relay } from '@/types'
 
-export interface RelayDetailsData {
-  name: string
-  place: {
-    address: {
-      streetAddress: string
-      addressLocality: string
-      postalCode: string
-    }
-  }
-  openingHours: Array<{
-    dayOfWeek: string
-    opens: string
-    closes: string
-  }>
+interface Panieco {
+  id: number
+  public_id: string
+  total_amount: number | string
+  free_shipping_min: number | string
+  status: string
 }
 
 interface Props {
-  selectedRelais: RelayDetailsData
+  selectedRelais: Relay
   setViewMode(mode: 'list' | 'details'): void
 }
 
-export default function RelaisDetails({
-  selectedRelais,
-  setViewMode
-}: Props) {
+export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
   const [showOpeningHours, setShowOpeningHours] = useState(false)
-  const [createPanieco, setCreatePanieco] = useState(false)
+  const [paniecosInRelais, setPaniecosInRelais] = useState<Panieco[]>([])
+  const { apiBaseUrl, apiKey, externalClientId, cart } = useWidgetContext()
+  const [expandedPaniecoId, setExpandedPaniecoId] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [createMessage, setCreateMessage] = useState<string | null>(null)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
 
-  const groupedOpeningHours = groupHoursByDay(selectedRelais.openingHours)
+  const groupedOpeningHours = groupHoursByDay(selectedRelais.openingHours || [])
   const orderedDays = Object.keys(days).map(dayOfWeekToFrench)
   const displayAfternoonColumn = hasAfternoonHours(groupedOpeningHours)
+
+  // 1 Extraction de la logique de chargement pour pouvoir la réutiliser
+  const fetchPaniecos = useCallback(async () => {
+    try {
+      const res = await axios.get(
+        `${apiBaseUrl}/api/v1/group-orders/pickup-point/${selectedRelais.id}`,
+        { headers: { 'x-api-key': apiKey } }
+      )
+      setPaniecosInRelais(res.data.groupOrders || [])
+    } catch (err) {
+      console.error('Erreur lors du chargement des Paniecos du point relais', err)
+    }
+  }, [selectedRelais.id, apiBaseUrl, apiKey])
+
+  // 2 Chargement initial et à chaque fois que fetchPaniecos change
+  useEffect(() => {
+    fetchPaniecos()
+  }, [fetchPaniecos])
+
+  // 3 gestion du clic « hors liste » 
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      // si aucun Panieco n'est ouvert, on ne fait rien
+      if (expandedPaniecoId === null) return
+
+      // si le clic est en dehors de la liste, on ferme
+      if (listRef.current && !listRef.current.contains(e.target as Node)) {
+        setExpandedPaniecoId(null)
+      }
+    }
+    document.addEventListener('click', onClickOutside)
+    return () => document.removeEventListener('click', onClickOutside)
+  }, [expandedPaniecoId])
+
+  // 4 création d'un nouveau panieco
+  const handleCreatePanieco = async () => {
+    setCreating(true)
+    setCreateError(null)
+    setCreateMessage(null)
+    // calcul du montant initial
+    const amount = cart.reduce(
+      (sum, it) => sum + it.quantity * it.unit_price,
+      0
+    )
+    try {
+      const res = await axios.post(
+        `${apiBaseUrl}/api/v1/group-orders/init`,
+        {
+          pickup_point_id: selectedRelais.id,
+          external_client_id: externalClientId,
+          amount,
+          items: cart
+        },
+        { headers: { 'x-api-key': apiKey } }
+      )
+      setCreateMessage(`Panieco n° ${res.data.groupOrder.public_id} créé avec succès !`)
+      // on recharge la liste
+      fetchPaniecos()
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        console.error(err)
+        setCreateError(err.response?.data?.error || 'Erreur lors de la création du Panieco.')
+      } else {
+        console.error(err)
+        setCreateError('Erreur inconnue.')
+      }
+    }
+  }
   return (
-    <div className="bg-white p-6 rounded-lg shadow space-y-5 text-gray-800">
+    <div ref={containerRef} className="bg-white p-6 rounded-lg shadow space-y-5 text-gray-800">
       <div
         className="flex items-center justify-between text-sm text-gray-600 cursor-pointer"
         onClick={() => setViewMode('list')}
@@ -68,6 +138,7 @@ export default function RelaisDetails({
           <p>{selectedRelais.place.address.postalCode}</p>
         </div>
       </div>
+
       <div>
         <h4
           className="flex items-center text-sm font-medium text-gray-700 cursor-pointer"
@@ -76,12 +147,9 @@ export default function RelaisDetails({
           <Clock className="w-5 h-5 mr-2 text-yellow-500" />
           Horaires d'ouverture
           <ChevronDown
-            className={`w-4 h-4 ml-2 transform transition-transform ${
-              showOpeningHours ? 'rotate-180' : ''
-            }`}
+            className={`w-4 h-4 ml-2 transform transition-transform ${showOpeningHours ? 'rotate-180' : ''}`}
           />
         </h4>
-
         {showOpeningHours && (
           <table className="w-full text-left mt-3 text-sm border-collapse">
             <thead>
@@ -97,13 +165,9 @@ export default function RelaisDetails({
                 return (
                   <tr key={day} className="border-t">
                     <td className="py-1">{day}</td>
-                    <td className="py-1">
-                      {formatMorningHoursForDisplay(times)}
-                    </td>
+                    <td className="py-1">{formatMorningHoursForDisplay(times)}</td>
                     {displayAfternoonColumn && (
-                      <td className="py-1">
-                        {formatAfternoonHoursForDisplay(times)}
-                      </td>
+                      <td className="py-1">{formatAfternoonHoursForDisplay(times)}</td>
                     )}
                   </tr>
                 )
@@ -113,23 +177,85 @@ export default function RelaisDetails({
         )}
       </div>
 
-      <div className="flex items-center text-sm text-gray-700">
-        <ShoppingCart className="w-5 h-5 mr-2 text-green-500" />
-        0 Panieco dans ce point relais
-      </div>
-
-      <button
-        onClick={() => setCreatePanieco(!createPanieco)}
-        className="w-full mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-      >
-        Créer un Panieco
-      </button>
-
-      {createPanieco && (
-        <div className="p-4 mt-3 bg-gray-50 border border-gray-200 rounded">
-          yo
+      {/* Paniecos */}
+      <div className="text-sm text-gray-700">
+        <div className="flex items-center mb-1">
+          <ShoppingCart className="w-5 h-5 mr-2 text-green-500" />
+          {paniecosInRelais.length === 0
+            ? 'Aucun Panieco dans ce point relais'
+            : `${paniecosInRelais.length} Panieco(s) dans ce point relais`}
         </div>
-      )}
+        {paniecosInRelais.length > 0 && (
+          <ul ref={listRef} className="list-none list-inside ml-0 text-gray-600 space-y-2">
+            {paniecosInRelais.map(p => {
+              const total =
+              typeof p.total_amount === 'string'
+                ? parseFloat(p.total_amount)
+                : p.total_amount
+              const threshold =
+                typeof p.free_shipping_min === 'string'
+                  ? parseFloat(p.free_shipping_min)
+                  : p.free_shipping_min
+              const cfg = getStatusConfig(p.status, total, threshold);
+              const isOpen = expandedPaniecoId === p.public_id
+
+              return (
+                <li key={p.id} className="space-y-2">
+                  <div
+                    onClick={() => setExpandedPaniecoId(isOpen ? null : p.public_id)}
+                    className={clsx(
+                      'flex items-center justify-between p-2 rounded cursor-pointer',
+                      isOpen ? 'bg-gray-100 shadow-sm' : 'hover:bg-gray-50'
+                    )}
+                  >
+                    <div>
+                      <span className="font-medium">Panieco {p.public_id}</span> – {p.total_amount} €
+                      <span
+                        className={clsx(
+                          'ml-2 inline-block px-2 py-0.5 text-xs font-semibold rounded',
+                          cfg.bg,
+                          cfg.text
+                        )}
+                      >
+                        {cfg.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {isOpen && (
+                    <div className="ml-4 mt-2 border-l-2 border-gray-200 pl-4">
+                      <PaniecoDetails
+                        publicId={p.public_id}
+                        cart={cart}
+                        freeShippingMin={threshold}
+                        onUpdate={fetchPaniecos}
+                      />
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+
+          </ul>
+        )}
+
+        <button
+          onClick={handleCreatePanieco}
+          disabled={creating}
+          className="btn-primary w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:opacity-50"
+        >
+          {creating ? 'Création en cours…' : 'Créer un Panieco'}
+        </button>
+
+        {/* Message / Erreur */}
+        {(createMessage || createError) && (
+          <div className="p-4 mt-2 bg-gray-50 border border-gray-200 rounded text-sm">
+            {createMessage && <p className="text-green-700">{createMessage}</p>}
+            {createError && <p className="text-red-600">{createError}</p>}
+          </div>
+        )}
+
+      </div>
     </div>
   )
 }
