@@ -1,11 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import axios from 'axios'
+import clsx from 'clsx'
 import ArrowLeft from '@/icons/ArrowLeft'
 import ChevronDown from '@/icons/ChevronDown'
 import Clock from '@/icons/Clock'
 import MarkerIcon from '@/icons/MarkerIcon'
 import QuitIcon from '@/icons/QuitIcon'
 import ShoppingCart from '@/icons/ShoppingCart'
+import PaniecoDetails from './PaniecoDetails'
+import { useWidgetContext } from '@/context/WidgetContext'
+import { Relay } from '@/types'
 import {
   days,
   hasAfternoonHours,
@@ -14,11 +18,7 @@ import {
   groupHoursByDay,
   dayOfWeekToFrench
 } from '@/utils/timeHelpers'
-import { useWidgetContext } from '@/context/WidgetContext'
-import PaniecoDetails from './PaniecoDetails'
-import clsx from 'clsx';
-import { getStatusConfig } from '@/utils/statusHelper';
-import { Relay } from '@/types'
+import { getStatusConfig } from '@/utils/statusHelper'
 
 interface Panieco {
   id: number
@@ -48,7 +48,6 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
   const orderedDays = Object.keys(days).map(dayOfWeekToFrench)
   const displayAfternoonColumn = hasAfternoonHours(groupedOpeningHours)
 
-  // 1 Extraction de la logique de chargement pour pouvoir la réutiliser
   const fetchPaniecos = useCallback(async () => {
     try {
       const res = await axios.get(
@@ -57,22 +56,17 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
       )
       setPaniecosInRelais(res.data.groupOrders || [])
     } catch (err) {
-      console.error('Erreur lors du chargement des Paniecos du point relais', err)
+      console.error('Erreur chargement des Paniecos du point relais', err)
     }
   }, [selectedRelais.id, apiBaseUrl, apiKey])
 
-  // 2 Chargement initial et à chaque fois que fetchPaniecos change
   useEffect(() => {
     fetchPaniecos()
   }, [fetchPaniecos])
 
-  // 3 gestion du clic « hors liste » 
   useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      // si aucun Panieco n'est ouvert, on ne fait rien
+    const onClickOutside = (e: MouseEvent) => {
       if (expandedPaniecoId === null) return
-
-      // si le clic est en dehors de la liste, on ferme
       if (listRef.current && !listRef.current.contains(e.target as Node)) {
         setExpandedPaniecoId(null)
       }
@@ -81,16 +75,12 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
     return () => document.removeEventListener('click', onClickOutside)
   }, [expandedPaniecoId])
 
-  // 4 création d'un nouveau panieco
   const handleCreatePanieco = async () => {
     setCreating(true)
     setCreateError(null)
     setCreateMessage(null)
-    // calcul du montant initial
-    const amount = cart.reduce(
-      (sum, it) => sum + it.quantity * it.unit_price,
-      0
-    )
+
+    const amount = cart.reduce((sum, it) => sum + it.quantity * it.unit_price, 0)
     try {
       const res = await axios.post(
         `${apiBaseUrl}/api/v1/group-orders/init`,
@@ -103,20 +93,23 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
         { headers: { 'x-api-key': apiKey } }
       )
       setCreateMessage(`Panieco n° ${res.data.groupOrder.public_id} créé avec succès !`)
-      // on recharge la liste
       fetchPaniecos()
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        console.error(err)
-        setCreateError(err.response?.data?.error || 'Erreur lors de la création du Panieco.')
-      } else {
-        console.error(err)
-        setCreateError('Erreur inconnue.')
-      }
+      const msg = axios.isAxiosError(err)
+        ? err.response?.data?.error || 'Erreur lors de la création du Panieco.'
+        : 'Erreur inconnue.'
+      setCreateError(msg)
+    } finally {
+      setCreating(false)
     }
   }
+
   return (
-    <div ref={containerRef} className="bg-white p-6 rounded-lg shadow space-y-5 text-gray-800">
+    <div
+      ref={containerRef}
+      className="bg-white p-4 sm:p-6 rounded-lg shadow space-y-4 text-gray-800"
+    >
+      {/* Retour */}
       <div
         className="flex items-center justify-between text-sm text-gray-600 cursor-pointer"
         onClick={() => setViewMode('list')}
@@ -128,8 +121,16 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
         <QuitIcon className="w-4 h-4" />
       </div>
 
-      <h3 className="text-xl font-bold">{selectedRelais.name}</h3>
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg sm:text-xl font-bold">{selectedRelais.name}</h3>
+        {typeof selectedRelais.distanceKm === 'number' && (
+          <span className="text-sm text-gray-700 bg-white/80 rounded px-2 py-0.5 shadow-sm ml-4 whitespace-nowrap">
+            {selectedRelais.distanceKm.toFixed(1)} km
+          </span>
+        )}
+      </div>
 
+      {/* Adresse */}
       <div className="flex items-start space-x-3">
         <MarkerIcon className="w-5 h-5 mt-1 text-blue-500" />
         <div className="space-y-0.5 text-sm">
@@ -139,6 +140,7 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
         </div>
       </div>
 
+      {/* Horaires */}
       <div>
         <h4
           className="flex items-center text-sm font-medium text-gray-700 cursor-pointer"
@@ -151,33 +153,35 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
           />
         </h4>
         {showOpeningHours && (
-          <table className="w-full text-left mt-3 text-sm border-collapse">
-            <thead>
-              <tr>
-                <th className="pb-2">Jour</th>
-                <th className="pb-2">Matin</th>
-                {displayAfternoonColumn && <th className="pb-2">Après-midi</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {orderedDays.map(day => {
-                const times = groupedOpeningHours[day] || {}
-                return (
-                  <tr key={day} className="border-t">
-                    <td className="py-1">{day}</td>
-                    <td className="py-1">{formatMorningHoursForDisplay(times)}</td>
-                    {displayAfternoonColumn && (
-                      <td className="py-1">{formatAfternoonHoursForDisplay(times)}</td>
-                    )}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left mt-3 text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className="pb-2">Jour</th>
+                  <th className="pb-2">Matin</th>
+                  {displayAfternoonColumn && <th className="pb-2">Après-midi</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {orderedDays.map(day => {
+                  const times = groupedOpeningHours[day] || {}
+                  return (
+                    <tr key={day} className="border-t">
+                      <td className="py-1">{day}</td>
+                      <td className="py-1">{formatMorningHoursForDisplay(times)}</td>
+                      {displayAfternoonColumn && (
+                        <td className="py-1">{formatAfternoonHoursForDisplay(times)}</td>
+                      )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* Paniecos */}
+      {/* Liste des Paniecos */}
       <div className="text-sm text-gray-700">
         <div className="flex items-center mb-1">
           <ShoppingCart className="w-5 h-5 mr-2 text-green-500" />
@@ -185,18 +189,13 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
             ? 'Aucun Panieco dans ce point relais'
             : `${paniecosInRelais.length} Panieco(s) dans ce point relais`}
         </div>
+
         {paniecosInRelais.length > 0 && (
-          <ul ref={listRef} className="list-none list-inside ml-0 text-gray-600 space-y-2">
+          <ul ref={listRef} className="space-y-2 text-gray-600">
             {paniecosInRelais.map(p => {
-              const total =
-              typeof p.total_amount === 'string'
-                ? parseFloat(p.total_amount)
-                : p.total_amount
-              const threshold =
-                typeof p.free_shipping_min === 'string'
-                  ? parseFloat(p.free_shipping_min)
-                  : p.free_shipping_min
-              const cfg = getStatusConfig(p.status, total, threshold);
+              const total = typeof p.total_amount === 'string' ? parseFloat(p.total_amount) : p.total_amount
+              const threshold = typeof p.free_shipping_min === 'string' ? parseFloat(p.free_shipping_min) : p.free_shipping_min
+              const cfg = getStatusConfig(p.status, total, threshold)
               const isOpen = expandedPaniecoId === p.public_id
 
               return (
@@ -209,14 +208,8 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
                     )}
                   >
                     <div>
-                      <span className="font-medium">Panieco {p.public_id}</span> – {p.total_amount} €
-                      <span
-                        className={clsx(
-                          'ml-2 inline-block px-2 py-0.5 text-xs font-semibold rounded',
-                          cfg.bg,
-                          cfg.text
-                        )}
-                      >
+                      <span className="font-medium">Panieco {p.public_id}</span> – {total} €
+                      <span className={clsx('ml-2 inline-block px-2 py-0.5 text-xs font-semibold rounded', cfg.bg, cfg.text)}>
                         {cfg.label}
                       </span>
                     </div>
@@ -235,7 +228,6 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
                 </li>
               )
             })}
-
           </ul>
         )}
 
@@ -247,14 +239,12 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
           {creating ? 'Création en cours…' : 'Créer un Panieco'}
         </button>
 
-        {/* Message / Erreur */}
         {(createMessage || createError) && (
           <div className="p-4 mt-2 bg-gray-50 border border-gray-200 rounded text-sm">
             {createMessage && <p className="text-green-700">{createMessage}</p>}
             {createError && <p className="text-red-600">{createError}</p>}
           </div>
         )}
-
       </div>
     </div>
   )

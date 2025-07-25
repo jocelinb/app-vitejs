@@ -20,6 +20,8 @@ export interface Relay {
     }
   }
   openingHours?: OpeningHour[]
+  distanceKm?: number
+  paniecoCount?: number
 }
 
 export interface RawRelais {

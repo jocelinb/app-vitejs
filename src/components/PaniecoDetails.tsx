@@ -19,7 +19,7 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
     total_amount: string | number
   } | null>(null)
   const [participantId, setParticipantId] = useState<number | null>(null)
-  const [hasPaid, setHasPaid] = useState(false);
+  const [hasPaid, setHasPaid] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,7 +46,7 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
       setLoading(false)
     }
   }, [publicId, apiBaseUrl, apiKey, externalClientId])
-  
+
   useEffect(() => {
     fetchDetails()
   }, [fetchDetails])
@@ -146,7 +146,7 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
       </p>
 
       <p className="font-medium text-gray-700">
-        Total : {totalAmountNum.toFixed(2)}€ / {freeShippingMin.toFixed(2)}€
+        Total : {totalAmountNum.toFixed(2)} € / {freeShippingMin.toFixed(2)} €
       </p>
 
       <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
@@ -159,7 +159,7 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
       {error && <p className="text-red-600">{error}</p>}
 
       {participantId ? (
-          <>
+        <>
           {hasPaid ? (
             <div className="flex items-center space-x-2 text-green-600">
               <CheckCircle className="text-green-600" size={18} />
@@ -169,7 +169,7 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
             <>
               <div className="flex items-center space-x-2 text-gray-700">
                 <CheckCircle className="text-gray-700" size={18} />
-                <span className="font-medium">Vous êtes sur ce panieco</span>
+                <span className="font-medium">Vous êtes sur ce Panieco</span>
               </div>
 
               <button
@@ -178,7 +178,7 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
                 className="btn-text flex items-center space-x-2 text-red-600 hover:underline mt-1"
               >
                 <XCircle className="text-red-600" size={18} />
-                <span>{processing ? 'Traitement…' : 'Me retirer du panieco'}</span>
+                <span>{processing ? 'Traitement…' : 'Me retirer du Panieco'}</span>
               </button>
 
               <button
@@ -201,7 +201,7 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
         </button>
       )}
 
-      <div className="mt-2">
+      <div className="mt-3">
         <p className="font-medium text-gray-700">Votre commande :</p>
         <ul className="list-disc list-inside text-gray-600 ml-4 mt-1">
           {cart.map((item, i) => (

@@ -2,6 +2,13 @@
 @import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 @import 'mapbox-gl/dist/mapbox-gl.css';
 
+@source inline("{md:,}block");
+@source inline("{md:,}hidden");
+@source inline("z-30");
+@source inline("z-50");
+@source inline("transition-all");
+@source inline("duration-300");
+
 #panieco-container .mapboxgl-map {
   position: absolute !important;
   top: 0 !important;

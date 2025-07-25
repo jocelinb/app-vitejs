@@ -12,6 +12,7 @@ export default function MapComponent() {
   const [selectedRelais, setSelectedRelais] = useState<Relay | null>(null)
   const [isReady, setIsReady] = useState(false)
 
+  // Initialisation carte (1 seule fois)
   useEffect(() => {
     if (map.current || !mapContainer.current) return
 
@@ -29,6 +30,7 @@ export default function MapComponent() {
     })
   }, [])
 
+  // Recentrage si un relais est sélectionné
   useEffect(() => {
     if (!map.current || !selectedRelais) return
     const { latitude, longitude } = selectedRelais.place.geo
@@ -40,9 +42,8 @@ export default function MapComponent() {
   }, [selectedRelais])
 
   return (
-    <>
+    <div className="relative w-full h-full flex flex-col md:flex-row">
       {isReady && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
           <SearchBar
             mapInstance={map.current!}
             setRelaisData={setRelaisData}
@@ -50,27 +51,47 @@ export default function MapComponent() {
             setSelectedRelais={setSelectedRelais}
             setViewMode={setViewMode}
           />
+      )}
+
+      <div ref={mapContainer} className="absolute inset-0 z-10 h-full" />
+
+      {/* 📋 Liste — Desktop uniquement */}
+      {relaisData.length > 0 && (
+        <div
+          className="absolute top-32 bottom-4 right-4 z-20 w-80 max-h-[80%] overflow-auto
+          bg-white/90 backdrop-blur-sm rounded-lg shadow-lg hidden md:block"
+        >
+          <RelaisList
+            data={relaisData}
+            viewMode={viewMode}
+            selectedRelais={selectedRelais}
+            setViewMode={setViewMode}
+
+            setSelectedRelais={setSelectedRelais}
+          />
         </div>
       )}
 
-      <div ref={mapContainer} className="absolute inset-0 z-10" />
-
-      <div
-        className="
-          absolute top-24 bottom-4 right-4 z-20
-          w-80 overflow-auto
-          bg-white/90 backdrop-blur-sm
-          rounded-lg shadow-lg
-        "
-      >
-        <RelaisList
-          data={relaisData}
-          viewMode={viewMode}
-          selectedRelais={selectedRelais}
-          setViewMode={setViewMode}
-          setSelectedRelais={setSelectedRelais}
-        />
-      </div>
-    </>
+      {relaisData.length > 0 && (
+        <div
+        className={`
+          absolute inset-x-0 bottom-0 z-30 md:hidden
+          bg-white rounded-t-lg shadow-lg overflow-y-auto
+          transition-all duration-300
+          ${viewMode === 'details'
+              ? 'bottom-0 max-h-[80%]' 
+              : 'bottom-0 max-h-[50%]'}
+        `}
+        >
+          <RelaisList
+            data={relaisData}
+            viewMode={viewMode}
+            selectedRelais={selectedRelais}
+            setViewMode={setViewMode}
+            setSelectedRelais={setSelectedRelais}
+          />
+        </div>
+      )}
+    </div>
   )
 }

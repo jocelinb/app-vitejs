@@ -14,7 +14,7 @@ interface Props {
 export default function RelaisListView({
   data,
   setSelectedRelais,
-  setViewMode
+  setViewMode,
 }: Props) {
   const { apiBaseUrl, apiKey } = useWidgetContext()
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -24,15 +24,14 @@ export default function RelaisListView({
       if (!data.length) return
 
       try {
-        const pickupIds = data.map(r => r.id).join(',')
+        const pickupIds = data.map((r) => r.id).join(',')
         const res = await axios.get(
           `${apiBaseUrl}/api/v1/group-orders/count-pickup`,
           {
             params: { pickup_point_ids: pickupIds },
-            headers: { 'x-api-key': apiKey }
+            headers: { 'x-api-key': apiKey },
           }
         )
-        // on suppose que l'API renvoie { counts: { [id]: number } }
         setCounts(res.data.counts || {})
       } catch (err) {
         console.error('Erreur lors de la récupération des Panieco par point relais', err)
@@ -42,25 +41,59 @@ export default function RelaisListView({
     fetchCounts()
   }, [data, apiBaseUrl, apiKey])
 
+  const sortedRelays = [...data].sort((a, b) => {
+    const aHasPanieco = (counts[a.id] || 0) > 0
+    const bHasPanieco = (counts[b.id] || 0) > 0
+
+    if (aHasPanieco && !bHasPanieco) return -1
+    if (!aHasPanieco && bHasPanieco) return 1
+
+    // S'ils sont équivalents niveau Panieco, on trie par distance
+    return (a.distanceKm || 0) - (b.distanceKm || 0)
+  })
+
+
   return (
     <ul className="divide-y divide-gray-200">
-      {data.map(loc => (
-        <li key={loc.id} className="flex flex-col px-4 py-3 space-y-2 hover:bg-gray-50 hover:shadow-md border-l-4 border-l-transparent hover:border-l-blue-500 transition-colors duration-200">
-          <h3 className="text-lg font-bold mb-2 text-gray-800">{loc.name}</h3>
-          <p className="flex items-center text-sm text-gray-600 mb-1">
-            <MarkerIcon className="w-4 h-4 mr-2 text-blue-500" />
-            {loc.place.address.streetAddress} — {loc.place.address.postalCode} {loc.place.address.addressLocality}
-          </p>
-          <p className="flex items-center text-sm text-gray-600 mb-3">
-            <ShoppingCart className="w-4 h-4 mr-2 text-green-600" />
-            {counts[loc.id] || 0} Panieco{(counts[loc.id] || 0) > 1 ? 's' : ''} dans ce point relais
-          </p>
+      {sortedRelays.map((loc) => (
+        <li
+          key={loc.id}
+          className={`relative p-4 space-y-2 hover:bg-gray-50 hover:shadow-sm border-l-4 transition-all duration-200
+            ${counts[loc.id] > 0 ? 'bg-yellow-50 border-yellow-400' : 'border-transparent'}
+          `}
+        >
+          <div className="flex justify-between items-start">
+            <h3 className="text-lg font-semibold text-gray-800">{loc.name}</h3>
+
+            {typeof loc.distanceKm === 'number' && (
+              <span className="text-xs text-gray-700 bg-white/80 rounded px-2 py-0.5 shadow-sm ml-2 whitespace-nowrap">
+                {loc.distanceKm.toFixed(1)} km
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-start gap-2 text-sm text-gray-600">
+            <MarkerIcon className="w-4 h-4 mt-1 text-blue-500" />
+            <span>
+              {loc.place.address.streetAddress} — {loc.place.address.postalCode}{' '}
+              {loc.place.address.addressLocality}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <ShoppingCart className="w-4 h-4 text-green-600" />
+            <span>
+              {counts[loc.id] || 0} Panieco
+              {(counts[loc.id] || 0) > 1 ? 's' : ''} dans ce point relais
+            </span>
+          </div>
+
           <button
             onClick={() => {
               setSelectedRelais(loc)
               setViewMode('details')
             }}
-            className="btn-primary mt-2 w-full text-center py-2 font-medium bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 transition cursor-pointer"
+            className="btn-primary w-full mt-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
             Voir plus
           </button>
