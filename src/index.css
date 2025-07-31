@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
-@import 'mapbox-gl/dist/mapbox-gl.css';
+@import 'maplibre-gl/dist/maplibre-gl.css';
 
 @source inline("{md:,}block");
 @source inline("{md:,}hidden");
@@ -9,7 +9,8 @@
 @source inline("transition-all");
 @source inline("duration-300");
 
-#panieco-container .mapboxgl-map {
+/* Ajuste la taille du conteneur MapLibre pour qu'il occupe tout l'espace */
+#panieco-container .maplibregl-map {
   position: absolute !important;
   top: 0 !important;
   right: 0 !important;
@@ -17,7 +18,10 @@
   left: 0 !important;
 }
 
-/* 4. Styles du Geocoder (inchangés) */
+/*
+ * Styles du Geocoder — ces classes proviennent du plugin
+ * Mapbox Geocoder et restent inchangées.
+ */
 .mapboxgl-ctrl-geocoder {
   position: relative !important;
   display: flex !important;
@@ -51,7 +55,7 @@
   cursor: pointer;
 }
 
-/* 1) Search icon (la loupe) */
+/* Icône de recherche (loupe) */
 .mapboxgl-ctrl-geocoder--icon-search {
   position: static !important;
   top: auto !important;
@@ -59,7 +63,7 @@
   margin-right: 0.5rem;
 }
 
-/* 2) Clear button (la croix) */
+/* Bouton pour effacer le champ de recherche */
 .mapboxgl-ctrl-geocoder--button {
   position: static !important;
   top: auto !important;
@@ -67,7 +71,7 @@
   margin-left: 0.5rem;
 }
 
-/* Supprime le margin-top ajouté par Mapbox sur l’icône croix */
+/* Supprime le margin‑top ajouté par Mapbox sur l’icône “croix” */
 .mapboxgl-ctrl-geocoder--icon-close {
   margin-top: 0 !important;
 }
@@ -96,37 +100,39 @@
   display: none !important;
 }
 
-/* Override de Mapbox GL, force fullscreen */
-.mapboxgl-map {
-  position: absolute  !important;
-  top:      0px       !important;
-  right:    0px       !important;
-  bottom:   0px       !important;
-  left:     0px       !important;
+/* Override de MapLibre GL — force l’affichage plein écran */
+.maplibregl-map {
+  position: absolute !important;
+  top: 0px !important;
+  right: 0px !important;
+  bottom: 0px !important;
+  left: 0px !important;
 }
 
-/* ========== OVERRIDES POUR LES BOUTONS DU WIDGET ========== */
+/*
+ * ========== OVERRIDES POUR LES BOUTONS DU WIDGET ==========
+ */
 
 /* Boutons “primaires” (Rejoindre, Payer…) */
 #panieco-container button.btn-primary {
   background-color: #2563EB;
-  color:            #FFFFFF;
+  color: #FFFFFF;
 }
 #panieco-container button.btn-primary:hover {
   background-color: #1D4ED8;
 }
 
-/* Liens/textes d’action (Me retirer…) */
+/* Liens ou textes d’action (Me retirer…) */
 #panieco-container button.btn-text {
-  background:       none;
-  color:            #DC2626;    /* rouge-600 */
-  padding:          0;
-  border:           none;
-  text-decoration:  underline;
+  background: none;
+  color: #DC2626;    /* rouge‑600 */
+  padding: 0;
+  border: none;
+  text-decoration: underline;
 }
 
 /* Focus ring */
 #panieco-container button:focus {
-  outline: none      !important;
-  box-shadow: 0 0 0 2px rgba(147,197,253,0.5) !important; /* ring-2 ring-blue-300 */
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.5) !important; /* ring‑2 ring‑blue‑300 */
 }
