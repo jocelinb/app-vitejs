@@ -18,17 +18,56 @@
   left: 0 !important;
 }
 
-/* Cible le conteneur top-left des contrôles MapLibre */
-.mapboxgl-ctrl-top-left .mapboxgl-ctrl-geocoder {
-  position: absolute;      /* le sortir du flux des contrôles */
-  left: 50%;               /* centré horizontalement */
-  transform: translateX(-50%);
-  top: 1rem;               /* marge par rapport au haut de la carte */
-  width: calc(100% - 2rem);/* laisse 1rem de marge de chaque côté */
+/*
+ * Styles du Geocoder — ces classes proviennent du plugin
+ * Mapbox Geocoder et restent inchangées.
+ */
+.mapboxgl-ctrl-geocoder {
+  position: relative !important;
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: white !important;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 100% !important;
   max-width: 500px;
-  z-index: 10;
+  margin: 0 auto;
 }
 
+/*
+ * Répartit les conteneurs de contrôles MapLibre sur toute la largeur et
+ * centre le geocoder. Par défaut, MapLibre place les contrôles (dont le
+ * geocoder) en haut à gauche ou à droite avec un positionnement absolu
+ * étroit. Ici, on force la largeur à 100 %, on utilise flexbox pour
+ * centrer horizontalement et on neutralise les pointeurs pour éviter
+ * l’interaction sur la zone vide. Le geocoder récupère ensuite les
+ * événements avec pointer‑events: auto.
+ */
+/*
+ * Personnalise les conteneurs de contrôles MapLibre placés en haut
+ * de la carte (top-left et top-right) pour centrer horizontalement
+ * la barre de recherche. Ces conteneurs sont élargis à 100 %,
+ * utilisent Flexbox pour le centrage et désactivent les interactions
+ * sur l’espace vide. La barre récupère ensuite les clics.
+ */
+.maplibregl-ctrl-top-left,
+.maplibregl-ctrl-top-right {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+  pointer-events: none !important;
+  top: 1rem !important;
+  left: 0 !important;
+  right: 0 !important;
+  padding: 0 1rem !important;
+}
+
+.maplibregl-ctrl-top-left .mapboxgl-ctrl-geocoder,
+.maplibregl-ctrl-top-right .mapboxgl-ctrl-geocoder {
+  pointer-events: auto !important;
+}
 
 .mapboxgl-ctrl-geocoder input {
   flex: 1;

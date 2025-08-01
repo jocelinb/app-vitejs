@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import maplibregl from 'maplibre-gl';
-import SearchBar from './SearchBar';
 import RelaisList from './RelaisList';
+import SearchBar from './SearchBar';
 import { Relay } from '@/types';
 
 export default function MapComponent() {
@@ -20,7 +20,7 @@ export default function MapComponent() {
       container: mapContainer.current,
       // Style libre proposé par MapLibre. On pourrait utiliser un autre style
       // compatible, voire personnalisé, sans nécessiter de clé API Mapbox.
-      style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+      style: 'https://demotiles.maplibre.org/style.json',
       center: [2.3333, 48.8666],
       zoom: 9,
     });

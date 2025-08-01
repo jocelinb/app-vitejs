@@ -27,6 +27,7 @@ export default function SearchBar({
   useEffect(() => {
     if (!mapInstance) return;
 
+    // On caste maplibre-gl en tant que mapboxgl attendu par les types
     const geocoder = new MapboxGeocoder({
       accessToken: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string,
       mapboxgl: maplibregl,
@@ -35,14 +36,16 @@ export default function SearchBar({
       countries: 'fr',
     });
 
-    mapInstance.addControl(geocoder);
+    // Ajoute le contrôle dans la carte. On choisit explicitement la position
+    // 'top-left' pour faciliter la personnalisation via CSS et éviter
+    // l’existence simultanée des conteneurs top-left et top-right.
+    mapInstance.addControl(geocoder, 'top-left');
 
     geocoder.on('result', async (event) => {
       const result = event.result;
       const [lng, lat] = result.center;
       const query = encodeURIComponent(result.place_name);
       const url = `${apiBaseUrl}/api/v1/relais/search?query=${query}`;
-
       try {
         const response = await axios.get(url);
         const rawRelais = response.data.pointsRelais || [];
@@ -58,34 +61,27 @@ export default function SearchBar({
     };
   }, [mapInstance, apiBaseUrl, setRelaisData]);
 
-  // Ajout et suppression des marqueurs à chaque mise à jour des relais
+  // Affiche les marqueurs pour chaque relais
   useEffect(() => {
     const newMarkers = relaisData.map((loc) => {
       const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
         `<h3 class="font-bold">${loc.name}</h3><p>${loc.place.address.addressLocality}</p>`
       );
-
       const marker = new maplibregl.Marker()
         .setLngLat([loc.place.geo.longitude, loc.place.geo.latitude])
         .setPopup(popup)
         .addTo(mapInstance);
-
       marker.getElement().addEventListener('click', () => {
-        mapInstance.flyTo({
-          center: [loc.place.geo.longitude, loc.place.geo.latitude],
-        });
+        mapInstance.flyTo({ center: [loc.place.geo.longitude, loc.place.geo.latitude] });
         setSelectedRelais(loc);
         setViewMode('details');
       });
-
       return marker;
     });
-
     return () => {
       newMarkers.forEach((m) => m.remove());
     };
   }, [relaisData, mapInstance, setSelectedRelais, setViewMode]);
 
-  // On ne retourne rien : le contrôle est inséré par MapLibre
   return null;
 }
