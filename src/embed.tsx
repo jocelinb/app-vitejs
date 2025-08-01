@@ -7,10 +7,8 @@ import App from '@/App';
 import { WidgetProvider } from '@/context';
 import { CartItem } from '@/types';
 import React from 'react';
-import maplibregl from 'maplibre-gl';
 
 const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE_URL as string;
-const DEFAULT_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string;
 
 declare global {
   interface Window {
@@ -36,7 +34,6 @@ window.PaniecoWidget = {
     externalClientId,
     cart,
     apiBaseUrl = DEFAULT_API_BASE,
-    mapboxToken = DEFAULT_MAPBOX_TOKEN,
     merchantUrl,
   }) {
     const container = document.getElementById(containerId);
@@ -46,10 +43,6 @@ window.PaniecoWidget = {
       );
       return;
     }
-
-    // Affecte le jeton pour le geocoder Mapbox. MapLibre lui-même
-    // n’a pas besoin de jeton pour afficher des tuiles libres.
-    maplibregl.accessToken = mapboxToken;
 
     const root = createRoot(container);
     root.render(
