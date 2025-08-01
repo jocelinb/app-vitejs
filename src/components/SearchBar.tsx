@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import axios from 'axios';
 import maplibregl from 'maplibre-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
@@ -21,29 +21,25 @@ export default function SearchBar({
   setSelectedRelais,
   setViewMode,
 }: Props) {
-  const ref = useRef<HTMLDivElement>(null);
   const { apiBaseUrl } = useWidgetContext();
 
-  // Initialise le geocoder lors du montage du composant
+  // Ajout du geocoder en tant que contrôle de la carte
   useEffect(() => {
-    if (!mapInstance || !ref.current) return;
+    if (!mapInstance) return;
 
-    const mapboxglInstance = maplibregl;
     const geocoder = new MapboxGeocoder({
-      // Utilise la clé Mapbox pour l’API de géocodage
       accessToken: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string,
-      // Injecte MapLibre pour que le plugin fonctionne sans mapbox-gl
-      mapboxgl: mapboxglInstance,
+      mapboxgl: maplibregl,
       marker: false,
       placeholder: 'Ville ou adresse…',
       countries: 'fr',
     });
 
-    ref.current?.appendChild(geocoder.onAdd(mapInstance));
+    mapInstance.addControl(geocoder);
 
     geocoder.on('result', async (event) => {
       const result = event.result;
-      const [lng, lat] = result.center; // [longitude, latitude]
+      const [lng, lat] = result.center;
       const query = encodeURIComponent(result.place_name);
       const url = `${apiBaseUrl}/api/v1/relais/search?query=${query}`;
 
@@ -51,7 +47,6 @@ export default function SearchBar({
         const response = await axios.get(url);
         const rawRelais = response.data.pointsRelais || [];
         const relais = normalizeRelaisDataWithDistance(rawRelais, lat, lng);
-        console.log('Données récupérées via :', response.data.source || 'inconnue');
         setRelaisData(relais);
       } catch (error) {
         console.error('Erreur lors de la récupération des points relais:', error);
@@ -59,17 +54,16 @@ export default function SearchBar({
     });
 
     return () => {
-      (mapInstance).removeControl(geocoder);
+      mapInstance.removeControl(geocoder);
     };
   }, [mapInstance, apiBaseUrl, setRelaisData]);
 
-  // Affiche les marqueurs pour chaque relais
+  // Ajout et suppression des marqueurs à chaque mise à jour des relais
   useEffect(() => {
     const newMarkers = relaisData.map((loc) => {
-      const popup = new maplibregl.Popup({ offset: 25 }).setHTML(`
-        <h3 class="font-bold">${loc.name}</h3>
-        <p>${loc.place.address.addressLocality}</p>
-      `);
+      const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
+        `<h3 class="font-bold">${loc.name}</h3><p>${loc.place.address.addressLocality}</p>`
+      );
 
       const marker = new maplibregl.Marker()
         .setLngLat([loc.place.geo.longitude, loc.place.geo.latitude])
@@ -92,9 +86,6 @@ export default function SearchBar({
     };
   }, [relaisData, mapInstance, setSelectedRelais, setViewMode]);
 
-  return (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-[500px] px-4">
-      <div ref={ref} />
-    </div>
-  );
+  // On ne retourne rien : le contrôle est inséré par MapLibre
+  return null;
 }

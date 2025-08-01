@@ -18,23 +18,17 @@
   left: 0 !important;
 }
 
-/*
- * Styles du Geocoder — ces classes proviennent du plugin
- * Mapbox Geocoder et restent inchangées.
- */
-.mapboxgl-ctrl-geocoder {
-  position: relative !important;
-  display: flex !important;
-  align-items: center;
-  gap: 0.5rem;
-  background-color: white !important;
-  border-radius: 0.5rem;
-  padding: 0.5rem 1rem;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  width: 100% !important;
+/* Cible le conteneur top-left des contrôles MapLibre */
+.mapboxgl-ctrl-top-left .mapboxgl-ctrl-geocoder {
+  position: absolute;      /* le sortir du flux des contrôles */
+  left: 50%;               /* centré horizontalement */
+  transform: translateX(-50%);
+  top: 1rem;               /* marge par rapport au haut de la carte */
+  width: calc(100% - 2rem);/* laisse 1rem de marge de chaque côté */
   max-width: 500px;
-  margin: 0 auto;
+  z-index: 10;
 }
+
 
 .mapboxgl-ctrl-geocoder input {
   flex: 1;

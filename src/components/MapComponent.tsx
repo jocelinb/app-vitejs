@@ -42,7 +42,7 @@ export default function MapComponent() {
   }, [selectedRelais]);
 
   return (
-    <div className="relative w-full h-full flex flex-col md:flex-row">
+    <div className="relative w-full h-full flex flex-col md:flex-row overflow-hidden">
       {isReady && (
         <SearchBar
           mapInstance={map.current!}

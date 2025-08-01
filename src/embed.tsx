@@ -1,13 +1,16 @@
-import 'maplibre-gl/dist/maplibre-gl.css';
-import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
-import '@/index.css';
+// Import les feuilles de style comme chaînes afin de pouvoir les injecter
+// dans le Shadow DOM du widget. Vite permet d’utiliser la
+// requête `?inline` pour importer le contenu des fichiers CSS en
+// tant que texte lors de la compilation.
+import maplibreCss from 'maplibre-gl/dist/maplibre-gl.css?inline';
+import mapboxGeocoderCss from '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css?inline';
+import widgetStyles from '@/index.css?inline';
 
 import { createRoot } from 'react-dom/client';
 import App from '@/App';
 import { WidgetProvider } from '@/context';
 import { CartItem } from '@/types';
 import React from 'react';
-
 const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE_URL as string;
 
 declare global {
@@ -19,7 +22,6 @@ declare global {
         externalClientId: string;
         cart: CartItem[];
         apiBaseUrl?: string;
-        mapboxToken?: string;
         merchantUrl: string;
       }): void;
     };
@@ -35,6 +37,13 @@ window.PaniecoWidget = {
     cart,
     apiBaseUrl = DEFAULT_API_BASE,
     merchantUrl,
+  }: {
+    containerId: string;
+    userId: string;
+    externalClientId: string;
+    cart: CartItem[];
+    apiBaseUrl?: string;
+    merchantUrl: string;
   }) {
     const container = document.getElementById(containerId);
     if (!container) {
@@ -44,7 +53,23 @@ window.PaniecoWidget = {
       return;
     }
 
-    const root = createRoot(container);
+    // Crée ou récupère un Shadow DOM sur le conteneur pour isoler
+    // complètement le widget et éviter les conflits de styles avec la page hôte.
+    const shadowRoot =
+      container.shadowRoot ?? container.attachShadow({ mode: 'open' });
+
+    // Injecte les styles requis dans le shadowRoot. Si le widget est
+    // initialisé plusieurs fois, on s’assure de ne pas réinjecter
+    // plusieurs fois les mêmes styles en vérifiant leur présence.
+    if (!shadowRoot.querySelector('style[data-paniewidget]')) {
+      const styleEl = document.createElement('style');
+      styleEl.setAttribute('data-paniewidget', 'true');
+      styleEl.textContent = `${maplibreCss}\n${mapboxGeocoderCss}\n${widgetStyles}`;
+      shadowRoot.appendChild(styleEl);
+    }
+
+    // Monte l’application React dans le shadowRoot.
+    const root = createRoot(shadowRoot);
     root.render(
       <React.StrictMode>
         <WidgetProvider
