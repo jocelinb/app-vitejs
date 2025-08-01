@@ -20,7 +20,7 @@ export default function MapComponent() {
       container: mapContainer.current,
       // Style libre proposé par MapLibre. On pourrait utiliser un autre style
       // compatible, voire personnalisé, sans nécessiter de clé API Mapbox.
-      style: 'https://demotiles.maplibre.org/style.json',
+      style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
       center: [2.3333, 48.8666],
       zoom: 9,
     });

@@ -28,17 +28,18 @@ export default function SearchBar({
   useEffect(() => {
     if (!mapInstance || !ref.current) return;
 
+    const mapboxglInstance = maplibregl;
     const geocoder = new MapboxGeocoder({
       // Utilise la clé Mapbox pour l’API de géocodage
       accessToken: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string,
       // Injecte MapLibre pour que le plugin fonctionne sans mapbox-gl
-      mapboxgl: maplibregl as unknown as typeof import('maplibre-gl'),
+      mapboxgl: mapboxglInstance,
       marker: false,
       placeholder: 'Ville ou adresse…',
       countries: 'fr',
     });
 
-    ref.current.appendChild(geocoder.onAdd(mapInstance));
+    ref.current?.appendChild(geocoder.onAdd(mapInstance));
 
     geocoder.on('result', async (event) => {
       const result = event.result;
@@ -58,7 +59,7 @@ export default function SearchBar({
     });
 
     return () => {
-      mapInstance.removeControl(geocoder);
+      (mapInstance).removeControl(geocoder);
     };
   }, [mapInstance, apiBaseUrl, setRelaisData]);
 
