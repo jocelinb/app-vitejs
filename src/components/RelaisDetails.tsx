@@ -65,15 +65,20 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
   }, [fetchPaniecos])
 
   useEffect(() => {
+    const shadowHost = document.getElementById('panieco-container');
+    const root: Document | ShadowRoot = shadowHost?.shadowRoot || document;
+
     const onClickOutside = (e: MouseEvent) => {
-      if (expandedPaniecoId === null) return
+      if (expandedPaniecoId === null) return;
       if (listRef.current && !listRef.current.contains(e.target as Node)) {
-        setExpandedPaniecoId(null)
+        setExpandedPaniecoId(null);
       }
-    }
-    document.addEventListener('click', onClickOutside)
-    return () => document.removeEventListener('click', onClickOutside)
-  }, [expandedPaniecoId])
+    };
+
+    root.addEventListener('click', onClickOutside as EventListener);
+    return () => root.removeEventListener('click', onClickOutside as EventListener);
+  }, [expandedPaniecoId]);
+
 
   const handleCreatePanieco = async () => {
     setCreating(true)

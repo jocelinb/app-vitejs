@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { useWidgetContext } from '@/context/WidgetContext'
 import { CartItem } from '@/types'
@@ -11,17 +11,28 @@ interface Props {
   onUpdate?: () => void
 }
 
+interface ParticipantItem {
+  name: string;
+  reference?: string;
+  quantity: number;
+  unit_price: number | string;
+}
+
 export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpdate }: Props) {
   const { apiBaseUrl, externalClientId, apiKey, merchantUrl } = useWidgetContext()
   const [loading, setLoading] = useState(true)
   const [groupOrder, setGroupOrder] = useState<{
-    public_id: string
-    total_amount: string | number
+    public_id: string;
+    total_amount: string | number;
+    participant_count: number;
   } | null>(null)
   const [participantId, setParticipantId] = useState<number | null>(null)
   const [hasPaid, setHasPaid] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [initialItems, setInitialItems] = useState<CartItem[]>([]);
+  const [initialAmount, setInitialAmount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null)
+  const [orderUpdated, setOrderUpdated] = useState(false);
 
   const fetchDetails = useCallback(async () => {
     try {
@@ -40,6 +51,29 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
       setGroupOrder(detailsRes.data)
       setParticipantId(infoRes.data.participant_id)
       setHasPaid(!!infoRes.data.paid_at)
+
+      if (infoRes.data.items) {
+        const items = infoRes.data.items as ParticipantItem[];
+
+        const mapped: CartItem[] = items.map((it) => {
+          const price =
+            typeof it.unit_price === 'string'
+              ? parseFloat(it.unit_price)
+              : it.unit_price;
+
+          return {
+            id: it.name,
+            name: it.name,
+            quantity: it.quantity,
+            unit_price: price
+          };
+        });
+
+        setInitialItems(mapped);
+        setInitialAmount(parseFloat(infoRes.data.amount ?? '0'));
+      }
+
+
     } catch (err) {
       console.error('Erreur chargement PaniecoDetails:', err)
     } finally {
@@ -129,6 +163,66 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
     }
   }
 
+  const handleModifyOrder = async () => {
+    if (!participantId) return;
+    if (!cart.length) {
+      setError('Votre panier est vide.');
+      return;
+    }
+    setProcessing(true);
+    setError(null);
+
+    // Recalcule le montant en fonction du panier actuel
+    const amount = cart.reduce(
+      (sum, it) => sum + it.quantity * it.unit_price,
+      0
+    );
+
+    try {
+      await axios.put(
+        `${apiBaseUrl}/api/v1/group-orders/${publicId}/participants/${participantId}/order`,
+        {
+          amount,
+          items: cart
+        },
+        { headers: { 'x-api-key': apiKey } }
+      );
+      await fetchDetails(); // recharge les infos du panieco
+      onUpdate?.();         // notifie le parent si besoin
+
+      setOrderUpdated(true);
+      setTimeout(() => setOrderUpdated(false), 4000);
+    } catch (err) {
+      console.error('Erreur lors de la mise à jour de la commande :', err);
+      setError('Impossible de modifier la commande.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const hasChanges = useMemo(() => {
+    if (!participantId) return false;
+
+    const currentAmount = cart.reduce(
+      (sum, it) => sum + it.quantity * it.unit_price,
+      0
+    );
+
+    if (Math.abs(currentAmount - initialAmount) > 1e-2) return true;
+
+    if (cart.length !== initialItems.length) return true;
+
+    return cart.some((item) => {
+      const match = initialItems.find(
+        (oldItem) =>
+          oldItem.name === item.name &&
+          Math.abs(oldItem.unit_price - item.unit_price) < 1e-2
+      );
+      return !match || match.quantity !== item.quantity;
+    });
+  }, [participantId, cart, initialItems, initialAmount]);
+
+
   if (loading) return <p className="text-sm text-gray-500 mt-2">Chargement…</p>
   if (!groupOrder) return <p className="text-sm text-red-500 mt-2">Erreur de chargement</p>
 
@@ -143,6 +237,10 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
     <div className="border border-gray-200 rounded p-4 mt-2 bg-gray-50 text-sm space-y-3">
       <p className="text-gray-600">
         Panieco ID : <span className="font-mono">{groupOrder.public_id}</span>
+      </p>
+
+      <p className="text-gray-600">
+        Participants : <span className="font-mono">{groupOrder.participant_count}</span>
       </p>
 
       <p className="font-medium text-gray-700">
@@ -180,6 +278,26 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
                 <XCircle className="text-red-600" size={18} />
                 <span>{processing ? 'Traitement…' : 'Me retirer du Panieco'}</span>
               </button>
+
+              {/* bouton ou message de modification */}
+              {!hasPaid && (
+                orderUpdated ? (
+                  // Le message remplace le bouton pendant 4 secondes
+                  <p className="mt-2 text-green-600">
+                    La modification de votre commande a bien été prise en compte.
+                  </p>
+                ) : (
+                  hasChanges && (
+                    <button
+                      onClick={handleModifyOrder}
+                      disabled={processing}
+                      className="btn-secondary w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition disabled:opacity-50 mt-2"
+                    >
+                      {processing ? 'Modification…' : 'Modifier ma commande'}
+                    </button>
+                  )
+                )
+              )}
 
               <button
                 onClick={handlePay}

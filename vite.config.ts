@@ -9,9 +9,9 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    // prend tous les import 'xxx.css' et les injecte au runtime
     cssInjectedByJsPlugin(),
   ],
+  assetsInclude: ['**/*.css?inline'],
   resolve: {
     alias: {
       '@': '/src',
@@ -19,22 +19,18 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: 'src/embed.tsx',    // votre point d’entrée
-      name: 'PaniecoWidget',     // exposé en global : window.PaniecoWidget
-      formats: ['iife'],         // unique bundle auto-exécutable
+      entry: 'src/embed.tsx',
+      name: 'PaniecoWidget',
+      formats: ['iife'],
       fileName: () => 'panieco-widget.js',
     },
     rollupOptions: {
-      // on embarque **tout** dans le bundle
       external: [],
       output: {
-        // pour s’assurer de ne pas créer de chunks dynamiques
         inlineDynamicImports: true,
       },
     },
-    // IMPORTANT : désactive le découpage CSS en fichiers séparés
-    cssCodeSplit: false,
+    cssCodeSplit: false, // ⚠️ CSS est injecté dans le JS (et pas un fichier à part)
     minify: true,
   },
-  assetsInclude: ['**/*.css?inline'],
 })

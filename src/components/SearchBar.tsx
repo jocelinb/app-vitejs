@@ -1,17 +1,18 @@
-import { useEffect, useRef } from 'react'
-import axios from 'axios'
-import mapboxgl from 'mapbox-gl'
-import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder'
-import { normalizeRelaisDataWithDistance } from '@/utils/normalizeRelaisData'
-import { useWidgetContext } from '@/context/WidgetContext'
-import { Relay } from '@/types'
+import { useEffect } from 'react';
+import axios from 'axios';
+import maplibregl from 'maplibre-gl';
+import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
+import { normalizeRelaisDataWithDistance } from '@/utils/normalizeRelaisData';
+import { useWidgetContext } from '@/context/WidgetContext';
+import { Relay } from '@/types';
 
 interface Props {
-  mapInstance: mapboxgl.Map
-  setRelaisData: (arr: Relay[]) => void
-  relaisData: Relay[]
-  setSelectedRelais: (rel: Relay) => void
-  setViewMode: (mode: 'list' | 'details') => void
+  mapInstance: maplibregl.Map;
+  setRelaisData: (arr: Relay[]) => void;
+  relaisData: Relay[];
+  setSelectedRelais: (rel: Relay) => void;
+  setViewMode: (mode: 'list' | 'details') => void;
+  setListExpanded: (expanded: boolean) => void;
 }
 
 export default function SearchBar({
@@ -20,80 +21,75 @@ export default function SearchBar({
   relaisData,
   setSelectedRelais,
   setViewMode,
+  setListExpanded,
 }: Props) {
-  const ref = useRef<HTMLDivElement>(null)
-  const { apiBaseUrl } = useWidgetContext()
+  const { apiBaseUrl } = useWidgetContext();
 
-  // Effet : initialiser le Geocoder
+  // Ajout du geocoder en tant que contrôle de la carte
   useEffect(() => {
-    if (!mapInstance || !ref.current) return
+    if (!mapInstance) return;
 
+    // On caste maplibre-gl en tant que mapboxgl attendu par les types
     const geocoder = new MapboxGeocoder({
-      accessToken: mapboxgl.accessToken!,
-      mapboxgl: mapboxgl as unknown as typeof import('mapbox-gl'),
+      accessToken: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string,
+      mapboxgl: maplibregl,
       marker: false,
       placeholder: 'Ville ou adresse…',
       countries: 'fr',
-    })
+    });
 
-    ref.current.appendChild(geocoder.onAdd(mapInstance))
+    // Ajoute le contrôle dans la carte. On choisit explicitement la position
+    // 'top-left' pour faciliter la personnalisation via CSS et éviter
+    // l’existence simultanée des conteneurs top-left et top-right.
+    mapInstance.addControl(geocoder, 'top-left');
 
     geocoder.on('result', async (event) => {
-      const result = event.result
-      const [lng, lat] = result.center // → [longitude, latitude]
-      const query = encodeURIComponent(result.place_name)
-      const url = `${apiBaseUrl}/api/v1/relais/search?query=${query}`
-
+      const result = event.result;
+      const [lng, lat] = result.center;
+      const query = encodeURIComponent(result.place_name);
+      const url = `${apiBaseUrl}/api/v1/relais/search?query=${query}`;
       try {
-        const response = await axios.get(url)
+        const response = await axios.get(url);
+        const rawRelais = response.data.pointsRelais || [];
+        const relais = normalizeRelaisDataWithDistance(rawRelais, lat, lng);
+        setRelaisData(relais);
 
-        const rawRelais = response.data.pointsRelais || []
-        const relais = normalizeRelaisDataWithDistance(rawRelais, lat, lng)
-
-        console.log("Données récupérées via :", response.data.source || 'inconnue')
-        setRelaisData(relais)
+        // Lorsque des résultats sont trouvés, on affiche la liste des relais
+        setListExpanded(true);
       } catch (error) {
-        console.error("Erreur lors de la récupération des points relais:", error)
+        console.error('Erreur lors de la récupération des points relais:', error);
       }
-    })
+    });
 
     return () => {
-      mapInstance.removeControl(geocoder)
-    }
-  }, [mapInstance, apiBaseUrl, setRelaisData])
+      mapInstance.removeControl(geocoder);
+    };
+  }, [mapInstance, apiBaseUrl, setRelaisData, setListExpanded]);
 
-  // Effet : afficher les marqueurs
+  // Affiche les marqueurs pour chaque relais
   useEffect(() => {
     const newMarkers = relaisData.map((loc) => {
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-        <h3 class="font-bold">${loc.name}</h3>
-        <p>${loc.place.address.addressLocality}</p>
-      `)
-
-      const marker = new mapboxgl.Marker()
+      const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
+        `<h3 class="font-bold">${loc.name}</h3><p>${loc.place.address.addressLocality}</p>`
+      );
+      const marker = new maplibregl.Marker()
         .setLngLat([loc.place.geo.longitude, loc.place.geo.latitude])
         .setPopup(popup)
-        .addTo(mapInstance)
-
+        .addTo(mapInstance);
       marker.getElement().addEventListener('click', () => {
-        mapInstance.flyTo({
-          center: [loc.place.geo.longitude, loc.place.geo.latitude],
-        })
-        setSelectedRelais(loc)
-        setViewMode('details')
-      })
+        mapInstance.flyTo({ center: [loc.place.geo.longitude, loc.place.geo.latitude] });
+        setSelectedRelais(loc);
+        setViewMode('details');
 
-      return marker
-    })
-
+        // Lorsque l’utilisateur clique sur un marqueur, on s’assure que la liste soit visible
+        setListExpanded(true);
+      });
+      return marker;
+    });
     return () => {
-      newMarkers.forEach((m) => m.remove())
-    }
-  }, [relaisData, mapInstance, setSelectedRelais, setViewMode])
+      newMarkers.forEach((m) => m.remove());
+    };
+  }, [relaisData, mapInstance, setSelectedRelais, setViewMode, setListExpanded]);
 
-  return (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-[500px] px-4">
-      <div ref={ref} />
-    </div>
-  )
+  return null;
 }
