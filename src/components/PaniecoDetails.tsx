@@ -32,6 +32,7 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
   const [initialItems, setInitialItems] = useState<CartItem[]>([]);
   const [initialAmount, setInitialAmount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null)
+  const [orderUpdated, setOrderUpdated] = useState(false);
 
   const fetchDetails = useCallback(async () => {
     try {
@@ -53,15 +54,25 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
 
       if (infoRes.data.items) {
         const items = infoRes.data.items as ParticipantItem[];
-        const mapped: CartItem[] = items.map(it => ({
-          id: it.reference ?? it.name,
-          name: it.name,
-          quantity: it.quantity,
-          unit_price: parseFloat(it.unit_price as string)
-        }));
+
+        const mapped: CartItem[] = items.map((it) => {
+          const price =
+            typeof it.unit_price === 'string'
+              ? parseFloat(it.unit_price)
+              : it.unit_price;
+
+          return {
+            id: it.name,
+            name: it.name,
+            quantity: it.quantity,
+            unit_price: price
+          };
+        });
+
         setInitialItems(mapped);
         setInitialAmount(parseFloat(infoRes.data.amount ?? '0'));
       }
+
 
     } catch (err) {
       console.error('Erreur chargement PaniecoDetails:', err)
@@ -178,6 +189,9 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
       );
       await fetchDetails(); // recharge les infos du panieco
       onUpdate?.();         // notifie le parent si besoin
+
+      setOrderUpdated(true);
+      setTimeout(() => setOrderUpdated(false), 4000);
     } catch (err) {
       console.error('Erreur lors de la mise à jour de la commande :', err);
       setError('Impossible de modifier la commande.');
@@ -187,22 +201,26 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
   };
 
   const hasChanges = useMemo(() => {
-    if (!participantId || !initialItems) return false;
-    // montant différent
+    if (!participantId) return false;
+
     const currentAmount = cart.reduce(
       (sum, it) => sum + it.quantity * it.unit_price,
       0
     );
-    if (Math.abs(currentAmount - initialAmount) > 1e-2) return true;
-    // nombre d'articles différent
-    if (cart.length !== initialItems.length) return true;
-    // ou quantités/références différentes
-    return cart.some(item => {
-      const old = initialItems.find(i => i.id === item.id);
-      return !old || old.quantity !== item.quantity;
-    });
-  }, [participantId, initialItems, initialAmount, cart]);
 
+    if (Math.abs(currentAmount - initialAmount) > 1e-2) return true;
+
+    if (cart.length !== initialItems.length) return true;
+
+    return cart.some((item) => {
+      const match = initialItems.find(
+        (oldItem) =>
+          oldItem.name === item.name &&
+          Math.abs(oldItem.unit_price - item.unit_price) < 1e-2
+      );
+      return !match || match.quantity !== item.quantity;
+    });
+  }, [participantId, cart, initialItems, initialAmount]);
 
 
   if (loading) return <p className="text-sm text-gray-500 mt-2">Chargement…</p>
@@ -261,15 +279,24 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
                 <span>{processing ? 'Traitement…' : 'Me retirer du Panieco'}</span>
               </button>
 
-              {/* bouton de modification seulement si des différences existent */}
-              {!hasPaid && hasChanges && (
-                <button
-                  onClick={handleModifyOrder}
-                  disabled={processing}
-                  className="btn-secondary w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition disabled:opacity-50 mt-2"
-                >
-                  {processing ? 'Modification…' : 'Modifier ma commande'}
-                </button>
+              {/* bouton ou message de modification */}
+              {!hasPaid && (
+                orderUpdated ? (
+                  // Le message remplace le bouton pendant 4 secondes
+                  <p className="mt-2 text-green-600">
+                    La modification de votre commande a bien été prise en compte.
+                  </p>
+                ) : (
+                  hasChanges && (
+                    <button
+                      onClick={handleModifyOrder}
+                      disabled={processing}
+                      className="btn-secondary w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition disabled:opacity-50 mt-2"
+                    >
+                      {processing ? 'Modification…' : 'Modifier ma commande'}
+                    </button>
+                  )
+                )
               )}
 
               <button
