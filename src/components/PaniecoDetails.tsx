@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { useWidgetContext } from '@/context/WidgetContext'
 import { CartItem } from '@/types'
@@ -11,16 +11,26 @@ interface Props {
   onUpdate?: () => void
 }
 
+interface ParticipantItem {
+  name: string;
+  reference?: string;
+  quantity: number;
+  unit_price: number | string;
+}
+
 export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpdate }: Props) {
   const { apiBaseUrl, externalClientId, apiKey, merchantUrl } = useWidgetContext()
   const [loading, setLoading] = useState(true)
   const [groupOrder, setGroupOrder] = useState<{
-    public_id: string
-    total_amount: string | number
+    public_id: string;
+    total_amount: string | number;
+    participant_count: number;
   } | null>(null)
   const [participantId, setParticipantId] = useState<number | null>(null)
   const [hasPaid, setHasPaid] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [initialItems, setInitialItems] = useState<CartItem[]>([]);
+  const [initialAmount, setInitialAmount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null)
 
   const fetchDetails = useCallback(async () => {
@@ -40,6 +50,19 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
       setGroupOrder(detailsRes.data)
       setParticipantId(infoRes.data.participant_id)
       setHasPaid(!!infoRes.data.paid_at)
+
+      if (infoRes.data.items) {
+        const items = infoRes.data.items as ParticipantItem[];
+        const mapped: CartItem[] = items.map(it => ({
+          id: it.reference ?? it.name,
+          name: it.name,
+          quantity: it.quantity,
+          unit_price: parseFloat(it.unit_price as string)
+        }));
+        setInitialItems(mapped);
+        setInitialAmount(parseFloat(infoRes.data.amount ?? '0'));
+      }
+
     } catch (err) {
       console.error('Erreur chargement PaniecoDetails:', err)
     } finally {
@@ -163,6 +186,24 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
     }
   };
 
+  const hasChanges = useMemo(() => {
+    if (!participantId || !initialItems) return false;
+    // montant différent
+    const currentAmount = cart.reduce(
+      (sum, it) => sum + it.quantity * it.unit_price,
+      0
+    );
+    if (Math.abs(currentAmount - initialAmount) > 1e-2) return true;
+    // nombre d'articles différent
+    if (cart.length !== initialItems.length) return true;
+    // ou quantités/références différentes
+    return cart.some(item => {
+      const old = initialItems.find(i => i.id === item.id);
+      return !old || old.quantity !== item.quantity;
+    });
+  }, [participantId, initialItems, initialAmount, cart]);
+
+
 
   if (loading) return <p className="text-sm text-gray-500 mt-2">Chargement…</p>
   if (!groupOrder) return <p className="text-sm text-red-500 mt-2">Erreur de chargement</p>
@@ -178,6 +219,10 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
     <div className="border border-gray-200 rounded p-4 mt-2 bg-gray-50 text-sm space-y-3">
       <p className="text-gray-600">
         Panieco ID : <span className="font-mono">{groupOrder.public_id}</span>
+      </p>
+
+      <p className="text-gray-600">
+        Participants : <span className="font-mono">{groupOrder.participant_count}</span>
       </p>
 
       <p className="font-medium text-gray-700">
@@ -216,13 +261,16 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
                 <span>{processing ? 'Traitement…' : 'Me retirer du Panieco'}</span>
               </button>
 
-              <button
-                onClick={handleModifyOrder}
-                disabled={processing}
-                className="btn-secondary w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition disabled:opacity-50 mt-2"
-              >
-                {processing ? 'Modification…' : 'Modifier ma commande'}
-              </button>
+              {/* bouton de modification seulement si des différences existent */}
+              {!hasPaid && hasChanges && (
+                <button
+                  onClick={handleModifyOrder}
+                  disabled={processing}
+                  className="btn-secondary w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition disabled:opacity-50 mt-2"
+                >
+                  {processing ? 'Modification…' : 'Modifier ma commande'}
+                </button>
+              )}
 
               <button
                 onClick={handlePay}
