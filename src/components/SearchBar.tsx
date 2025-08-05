@@ -12,6 +12,7 @@ interface Props {
   relaisData: Relay[];
   setSelectedRelais: (rel: Relay) => void;
   setViewMode: (mode: 'list' | 'details') => void;
+  setListExpanded: (expanded: boolean) => void;
 }
 
 export default function SearchBar({
@@ -20,6 +21,7 @@ export default function SearchBar({
   relaisData,
   setSelectedRelais,
   setViewMode,
+  setListExpanded,
 }: Props) {
   const { apiBaseUrl } = useWidgetContext();
 
@@ -51,6 +53,9 @@ export default function SearchBar({
         const rawRelais = response.data.pointsRelais || [];
         const relais = normalizeRelaisDataWithDistance(rawRelais, lat, lng);
         setRelaisData(relais);
+
+        // Lorsque des résultats sont trouvés, on affiche la liste des relais
+        setListExpanded(true);
       } catch (error) {
         console.error('Erreur lors de la récupération des points relais:', error);
       }
@@ -59,7 +64,7 @@ export default function SearchBar({
     return () => {
       mapInstance.removeControl(geocoder);
     };
-  }, [mapInstance, apiBaseUrl, setRelaisData]);
+  }, [mapInstance, apiBaseUrl, setRelaisData, setListExpanded]);
 
   // Affiche les marqueurs pour chaque relais
   useEffect(() => {
@@ -75,13 +80,16 @@ export default function SearchBar({
         mapInstance.flyTo({ center: [loc.place.geo.longitude, loc.place.geo.latitude] });
         setSelectedRelais(loc);
         setViewMode('details');
+
+        // Lorsque l’utilisateur clique sur un marqueur, on s’assure que la liste soit visible
+        setListExpanded(true);
       });
       return marker;
     });
     return () => {
       newMarkers.forEach((m) => m.remove());
     };
-  }, [relaisData, mapInstance, setSelectedRelais, setViewMode]);
+  }, [relaisData, mapInstance, setSelectedRelais, setViewMode, setListExpanded]);
 
   return null;
 }

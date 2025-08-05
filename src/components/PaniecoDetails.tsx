@@ -129,6 +129,41 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
     }
   }
 
+  const handleModifyOrder = async () => {
+    if (!participantId) return;
+    if (!cart.length) {
+      setError('Votre panier est vide.');
+      return;
+    }
+    setProcessing(true);
+    setError(null);
+
+    // Recalcule le montant en fonction du panier actuel
+    const amount = cart.reduce(
+      (sum, it) => sum + it.quantity * it.unit_price,
+      0
+    );
+
+    try {
+      await axios.put(
+        `${apiBaseUrl}/api/v1/group-orders/${publicId}/participants/${participantId}/order`,
+        {
+          amount,
+          items: cart
+        },
+        { headers: { 'x-api-key': apiKey } }
+      );
+      await fetchDetails(); // recharge les infos du panieco
+      onUpdate?.();         // notifie le parent si besoin
+    } catch (err) {
+      console.error('Erreur lors de la mise à jour de la commande :', err);
+      setError('Impossible de modifier la commande.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+
   if (loading) return <p className="text-sm text-gray-500 mt-2">Chargement…</p>
   if (!groupOrder) return <p className="text-sm text-red-500 mt-2">Erreur de chargement</p>
 
@@ -179,6 +214,14 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
               >
                 <XCircle className="text-red-600" size={18} />
                 <span>{processing ? 'Traitement…' : 'Me retirer du Panieco'}</span>
+              </button>
+
+              <button
+                onClick={handleModifyOrder}
+                disabled={processing}
+                className="btn-secondary w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition disabled:opacity-50 mt-2"
+              >
+                {processing ? 'Modification…' : 'Modifier ma commande'}
               </button>
 
               <button

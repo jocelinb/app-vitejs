@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import maplibregl from 'maplibre-gl';
-import RelaisList from './RelaisList';
 import SearchBar from './SearchBar';
+import RelaisList from './RelaisList';
 import { Relay } from '@/types';
 
 export default function MapComponent() {
@@ -12,12 +12,17 @@ export default function MapComponent() {
   const [selectedRelais, setSelectedRelais] = useState<Relay | null>(null);
   const [isReady, setIsReady] = useState(false);
 
+  // Permet de replier/afficher la liste des relais (utile en mobile et desktop)
+  const [listExpanded, setListExpanded] = useState(true);
+
   // Initialisation de la carte (exécuté une seule fois)
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
+      // Style libre proposé par MapLibre. On pourrait utiliser un autre style
+      // compatible, voire personnalisé, sans nécessiter de clé API Mapbox.
       style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
       center: [2.3333, 48.8666],
       zoom: 9,
@@ -40,6 +45,11 @@ export default function MapComponent() {
   }, [selectedRelais]);
 
   return (
+    // La classe `overflow-hidden` empêche les éléments positionnés
+    // absolument (comme la barre de recherche) de dépasser du cadre du
+    // widget lorsqu’on fait défiler la page. Sans cette règle, la
+    // barre pouvait se superposer à la navigation du site hôte en
+    // production.
     <div className="relative w-full h-full flex flex-col md:flex-row overflow-hidden">
       {isReady && (
         <SearchBar
@@ -48,6 +58,7 @@ export default function MapComponent() {
           relaisData={relaisData}
           setSelectedRelais={setSelectedRelais}
           setViewMode={setViewMode}
+          setListExpanded={setListExpanded}
         />
       )}
 
@@ -56,17 +67,41 @@ export default function MapComponent() {
 
       {/* Liste — affichée uniquement sur desktop */}
       {relaisData.length > 0 && (
-        <div
-          className="absolute top-32 bottom-4 right-4 z-20 w-80 max-h-[80%] overflow-auto bg-white/90 backdrop-blur-sm rounded-lg shadow-lg hidden md:block"
-        >
-          <RelaisList
-            data={relaisData}
-            viewMode={viewMode}
-            selectedRelais={selectedRelais}
-            setViewMode={setViewMode}
-            setSelectedRelais={setSelectedRelais}
-          />
-        </div>
+        <>
+          {listExpanded ? (
+            <>
+              {/* Conteneur de la liste, avec défilement automatique pour le contenu */}
+              <div
+                className="absolute top-32 bottom-4 right-4 z-20 w-80 max-h-[80%] overflow-auto bg-white/90 backdrop-blur-sm rounded-lg shadow-lg hidden md:block"
+              >
+                <RelaisList
+                  data={relaisData}
+                  viewMode={viewMode}
+                  selectedRelais={selectedRelais}
+                  setViewMode={setViewMode}
+                  setSelectedRelais={setSelectedRelais}
+                />
+              </div>
+              {/* Bouton pour replier la liste sur desktop : affiché uniquement en vue "list" */}
+              {viewMode === 'list' && (
+                <button
+                  onClick={() => setListExpanded(false)}
+                  className="absolute top-28 right-4 z-30 bg-white text-sm px-3 py-1 rounded-lg shadow-md border hidden md:block"
+                >
+                  Retour à la carte
+                </button>
+              )}
+            </>
+          ) : (
+            /* Poignée ou bouton pour réafficher la liste sur desktop */
+            <button
+              onClick={() => setListExpanded(true)}
+              className="absolute bottom-12 right-4 z-20 bg-white text-sm px-3 py-1 rounded-lg shadow-md border hidden md:block"
+            >
+              Afficher la liste des points relais
+            </button>
+          )}
+        </>
       )}
 
       {/* Liste mobile / mode drawer */}
@@ -76,16 +111,42 @@ export default function MapComponent() {
             absolute inset-x-0 bottom-0 z-30 md:hidden
             bg-white rounded-t-lg shadow-lg overflow-y-auto
             transition-all duration-300
-            ${viewMode === 'details' ? 'bottom-0 max-h-[80%]' : 'bottom-0 max-h-[50%]'}
+            ${listExpanded
+              ? viewMode === 'details'
+                ? 'max-h-[80%]'
+                : 'max-h-[50%]'
+              : 'max-h-[3.5rem]'}
           `}
         >
-          <RelaisList
-            data={relaisData}
-            viewMode={viewMode}
-            selectedRelais={selectedRelais}
-            setViewMode={setViewMode}
-            setSelectedRelais={setSelectedRelais}
-          />
+          {/* Boutons pour replier ou déplier la liste en mobile */}
+          {listExpanded ? (
+            // Bouton "Retour à la carte" n'apparaît qu'en vue "list"
+            viewMode === 'list' ? (
+              <button
+                onClick={() => setListExpanded(false)}
+                className="w-full text-center text-sm py-2 border-b border-gray-200"
+              >
+                Retour à la carte
+              </button>
+            ) : null
+          ) : (
+            <button
+              onClick={() => setListExpanded(true)}
+              className="w-full text-center text-sm py-2 border-t border-gray-200"
+            >
+              Afficher la liste des points relais
+            </button>
+          )}
+          {/* Affichage conditionnel de la liste selon l’état */}
+          {listExpanded && (
+            <RelaisList
+              data={relaisData}
+              viewMode={viewMode}
+              selectedRelais={selectedRelais}
+              setViewMode={setViewMode}
+              setSelectedRelais={setSelectedRelais}
+            />
+          )}
         </div>
       )}
     </div>
