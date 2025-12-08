@@ -79,6 +79,18 @@ export default function RelaisDetails({ selectedRelais, setViewMode }: Props) {
     return () => root.removeEventListener('click', onClickOutside as EventListener);
   }, [expandedPaniecoId]);
 
+  useEffect(() => {
+    // poll si un panieco “ouvert” est affiché (collecting / ready_to_pay)
+    const hasOpen = paniecosInRelais.some(p => p.status === 'collecting' || p.status === 'ready_to_pay');
+    if (!hasOpen) return;
+
+    const id = setInterval(() => {
+      fetchPaniecos();
+    }, 8000);
+
+    return () => clearInterval(id);
+  }, [paniecosInRelais, fetchPaniecos]);
+
 
   const handleCreatePanieco = async () => {
     setCreating(true)

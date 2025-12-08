@@ -45,11 +45,6 @@ export default function MapComponent() {
   }, [selectedRelais]);
 
   return (
-    // La classe `overflow-hidden` empêche les éléments positionnés
-    // absolument (comme la barre de recherche) de dépasser du cadre du
-    // widget lorsqu’on fait défiler la page. Sans cette règle, la
-    // barre pouvait se superposer à la navigation du site hôte en
-    // production.
     <div className="relative w-full h-full flex flex-col md:flex-row overflow-hidden">
       {isReady && (
         <SearchBar
@@ -86,7 +81,7 @@ export default function MapComponent() {
               {viewMode === 'list' && (
                 <button
                   onClick={() => setListExpanded(false)}
-                  className="absolute top-28 right-4 z-30 bg-white text-sm px-3 py-1 rounded-lg shadow-md border hidden md:block"
+                  className="absolute top-28 right-4 z-30 bg-white text-sm px-3 py-1 rounded-lg shadow-md border hidden md:block text-gray-800"
                 >
                   Retour à la carte
                 </button>
@@ -96,7 +91,7 @@ export default function MapComponent() {
             /* Poignée ou bouton pour réafficher la liste sur desktop */
             <button
               onClick={() => setListExpanded(true)}
-              className="absolute bottom-12 right-4 z-20 bg-white text-sm px-3 py-1 rounded-lg shadow-md border hidden md:block"
+              className="absolute bottom-12 right-4 z-20 bg-white text-sm px-3 py-1 rounded-lg shadow-md border hidden md:block text-gray-800"
             >
               Afficher la liste des points relais
             </button>
@@ -124,7 +119,7 @@ export default function MapComponent() {
             viewMode === 'list' ? (
               <button
                 onClick={() => setListExpanded(false)}
-                className="w-full text-center text-sm py-2 border-b border-gray-200"
+                className="w-full text-center text-sm py-2 border-b border-gray-200 text-gray-800"
               >
                 Retour à la carte
               </button>
@@ -132,7 +127,7 @@ export default function MapComponent() {
           ) : (
             <button
               onClick={() => setListExpanded(true)}
-              className="w-full text-center text-sm py-2 border-t border-gray-200"
+              className="w-full text-center text-sm py-2 border-t border-gray-200 text-gray-800"
             >
               Afficher la liste des points relais
             </button>

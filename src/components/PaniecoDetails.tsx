@@ -20,19 +20,26 @@ interface ParticipantItem {
 
 export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpdate }: Props) {
   const { apiBaseUrl, externalClientId, apiKey, merchantUrl } = useWidgetContext()
+
   const [loading, setLoading] = useState(true)
   const [groupOrder, setGroupOrder] = useState<{
     public_id: string;
     total_amount: string | number;
     participant_count: number;
+    status: string;
   } | null>(null)
+
   const [participantId, setParticipantId] = useState<number | null>(null)
   const [hasPaid, setHasPaid] = useState(false)
+  const [hasAuthorized, setHasAuthorized] = useState(false)
+
   const [processing, setProcessing] = useState(false)
-  const [initialItems, setInitialItems] = useState<CartItem[]>([]);
-  const [initialAmount, setInitialAmount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null)
-  const [orderUpdated, setOrderUpdated] = useState(false);
+
+  // pour “Modifier ma commande”
+  const [initialItems, setInitialItems] = useState<CartItem[]>([])
+  const [initialAmount, setInitialAmount] = useState<number>(0)
+  const [orderUpdated, setOrderUpdated] = useState(false)
 
   const fetchDetails = useCallback(async () => {
     try {
@@ -51,6 +58,7 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
       setGroupOrder(detailsRes.data)
       setParticipantId(infoRes.data.participant_id)
       setHasPaid(!!infoRes.data.paid_at)
+      setHasAuthorized(!!infoRes.data.authorized_at)
 
       if (infoRes.data.items) {
         const items = infoRes.data.items as ParticipantItem[];
@@ -72,8 +80,6 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
         setInitialItems(mapped);
         setInitialAmount(parseFloat(infoRes.data.amount ?? '0'));
       }
-
-
     } catch (err) {
       console.error('Erreur chargement PaniecoDetails:', err)
     } finally {
@@ -84,6 +90,23 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
   useEffect(() => {
     fetchDetails()
   }, [fetchDetails])
+
+  // Auto-refresh tant qu’on attend une transition (autorisé en attente, non confirmé/expédié)
+  useEffect(() => {
+    const shouldPoll =
+      !!groupOrder &&
+      groupOrder.status !== 'confirmed' &&
+      groupOrder.status !== 'shipped' &&
+      (!hasPaid || hasAuthorized);
+
+    if (!shouldPoll) return;
+
+    const id = setInterval(() => {
+      fetchDetails();
+    }, 7000);
+
+    return () => clearInterval(id);
+  }, [groupOrder, hasPaid, hasAuthorized, fetchDetails]);
 
   const handleJoin = async () => {
     if (!cart.length) {
@@ -149,7 +172,7 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 409) {
-          setError('Vous avez déjà payé votre part sur ce Panieco.')
+          setError('Votre paiement est déjà autorisé (ou réglé) pour ce Panieco.')
         } else {
           console.error('Erreur création session de paiement:', err)
           setError(err.response?.data?.error || 'Impossible de démarrer le paiement.')
@@ -172,7 +195,6 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
     setProcessing(true);
     setError(null);
 
-    // Recalcule le montant en fonction du panier actuel
     const amount = cart.reduce(
       (sum, it) => sum + it.quantity * it.unit_price,
       0
@@ -187,8 +209,8 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
         },
         { headers: { 'x-api-key': apiKey } }
       );
-      await fetchDetails(); // recharge les infos du panieco
-      onUpdate?.();         // notifie le parent si besoin
+      await fetchDetails();
+      onUpdate?.();
 
       setOrderUpdated(true);
       setTimeout(() => setOrderUpdated(false), 4000);
@@ -222,7 +244,6 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
     });
   }, [participantId, cart, initialItems, initialAmount]);
 
-
   if (loading) return <p className="text-sm text-gray-500 mt-2">Chargement…</p>
   if (!groupOrder) return <p className="text-sm text-red-500 mt-2">Erreur de chargement</p>
 
@@ -230,6 +251,13 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
     typeof groupOrder.total_amount === 'string'
       ? parseFloat(groupOrder.total_amount)
       : groupOrder.total_amount ?? 0
+
+  const isConfirmed = groupOrder.status === 'confirmed';
+  const isShipped = groupOrder.status === 'shipped';
+  const isReadyToPay = groupOrder.status === 'ready_to_pay';
+
+  // Le bouton ne s’affiche que si prêt + pas payé + pas déjà autorisé
+  const canPay = isReadyToPay && !hasPaid && !hasAuthorized;
 
   const progress = Math.min((totalAmountNum / freeShippingMin) * 100, 100)
 
@@ -256,12 +284,25 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
 
       {error && <p className="text-red-600">{error}</p>}
 
-      {participantId ? (
+      {/* ---- BLOC STATUT ---- */}
+      {(isConfirmed || isShipped) ? (
+        <div className="border border-gray-200 rounded p-4 bg-gray-50 text-center text-green-700 font-semibold my-2">
+          {isConfirmed && "Commande complète : en préparation !"}
+          {isShipped && "Commande expédiée !"}
+        </div>
+      ) : participantId ? (
         <>
           {hasPaid ? (
             <div className="flex items-center space-x-2 text-green-600">
               <CheckCircle className="text-green-600" size={18} />
               <span className="font-medium">Votre part a été payée</span>
+            </div>
+          ) : hasAuthorized ? (
+            <div className="flex items-center space-x-2 text-emerald-600">
+              <CheckCircle className="text-emerald-600" size={18} />
+              <span className="font-medium">
+                Paiement autorisé – vous serez débité dès que la commande partira.
+              </span>
             </div>
           ) : (
             <>
@@ -270,21 +311,22 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
                 <span className="font-medium">Vous êtes sur ce Panieco</span>
               </div>
 
-              <button
-                onClick={handleLeave}
-                disabled={processing}
-                className="btn-text flex items-center space-x-2 text-red-600 hover:underline mt-1"
-              >
-                <XCircle className="text-red-600" size={18} />
-                <span>{processing ? 'Traitement…' : 'Me retirer du Panieco'}</span>
-              </button>
+              {/* Me retirer / Modifier uniquement tant que NON autorisé et NON payé */}
+              {!hasPaid && !hasAuthorized && (
+                <button
+                  onClick={handleLeave}
+                  disabled={processing}
+                  className="btn-text flex items-center space-x-2 text-red-600 hover:underline mt-1"
+                >
+                  <XCircle className="text-red-600" size={18} />
+                  <span>{processing ? 'Traitement…' : 'Me retirer du Panieco'}</span>
+                </button>
+              )}
 
-              {/* bouton ou message de modification */}
-              {!hasPaid && (
+              {!hasPaid && !hasAuthorized && (
                 orderUpdated ? (
-                  // Le message remplace le bouton pendant 4 secondes
                   <p className="mt-2 text-green-600">
-                    La modification de votre commande a bien été prise en compte.
+                    La modification de votre commande a bien été prise en compte dans ce Panieco.
                   </p>
                 ) : (
                   hasChanges && (
@@ -299,13 +341,29 @@ export default function PaniecoDetails({ publicId, cart, freeShippingMin, onUpda
                 )
               )}
 
-              <button
-                onClick={handlePay}
-                disabled={processing}
-                className="btn-primary w-full py-2 bg-green-600 text-white rounded hover:bg-green-700 transition disabled:opacity-50 mt-2"
-              >
-                {processing ? 'Chargement…' : 'Payer ma part'}
-              </button>
+              {/* Paiement : bouton actif seulement quand prêt ET non autorisé/non payé */}
+              {canPay ? (
+                <button
+                  onClick={handlePay}
+                  disabled={processing}
+                  className="btn-primary w-full py-2 bg-green-600 text-white rounded hover:bg-green-700 transition disabled:opacity-50 mt-2"
+                >
+                  {processing ? 'Chargement…' : 'Payer ma part'}
+                </button>
+              ) : !hasAuthorized && !hasPaid && (
+                <>
+                  <button
+                    disabled
+                    className="btn-primary w-full py-2 bg-gray-400 text-white rounded cursor-not-allowed mt-2"
+                    style={{ opacity: 0.7 }}
+                  >
+                    Payer ma part
+                  </button>
+                  <p className="text-gray-500 text-sm mt-1 text-center">
+                    Vous pourrez passer au paiement une fois le seuil atteint.
+                  </p>
+                </>
+              )}
             </>
           )}
         </>

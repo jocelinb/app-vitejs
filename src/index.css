@@ -169,3 +169,12 @@
   outline: none !important;
   box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.5) !important; /* ring‑2 ring‑blue‑300 */
 }
+
+.maplibregl-popup-content {
+  color: #1F2937 !important;  /* gris foncé (text-gray-800) */
+  font-family: inherit;
+}
+.maplibregl-popup-close-button {
+  color: #6B7280 !important;  /* gris moyen (text-gray-500) */
+  opacity: 0.8;
+}
